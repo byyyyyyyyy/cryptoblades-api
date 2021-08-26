@@ -5,9 +5,19 @@
 Create a `.env` file with the following:
 
 - `MONGODB_URI` - a ref to the mongodb instance
+- `WEBSOCKET_PROVIDER_URL` - the URL of the RPC websocket node
+
+### Optional Variables
+
 - `API_SECRET` - a string that must be passed for transactions to work (applies globally)
 - `API_SECRET_MARKET` - a string that must be passed for transactions to work (market only)
 - `API_SECRET_CALCULATED` - a string that must be passed for transactions to work (calculated only)
+- `MAX_DELETE` - the maximum number of items to delete at once (cleaning sold items)
+- `MONGODB_ITEMS_PAGE` - the number of items to retrieve per page when cleaning sold items
+- `PAPERTRAIL_API_TOKEN` - the API token for Papertrail to view logs there
+- `REDIS_URL` - the URL for a redis node this app should use (only needed for production)
+- `ROLLBAR_ACCESS_TOKEN` - the API token for Rollbar to handle errors
+- `ROLLBAR_ENDPOINT` - see the Rollbar documentation for this
 
 ### Secrets
 
