@@ -105,6 +105,10 @@ class Database {
         this.$marketWeapons.createIndex({ weaponElement: 1, buyerAddress: 1, price: -1 });
         this.$marketWeapons.createIndex({ weaponElement: 1, buyerAddress: 1, timestamp: -1 });
         this.$marketWeapons.createIndex({ sellerAddress: 1, buyerAddress: 1, timestamp: -1 });
+        this.$marketWeapons.createIndex({ network: 1, buyerAddress: 1, price: 1 });
+        this.$marketWeapons.createIndex({ network: 1, buyerAddress: 1, price: -1 });
+        this.$marketWeapons.createIndex({ network: 1, buyerAddress: 1, timestamp: 1 });
+        this.$marketWeapons.createIndex({ network: 1, buyerAddress: 1, timestamp: -1 });
 
         this.$marketShields = db.collection('marketboard-shields');
         this.$marketShields.createIndex({ timestamp: 1 });
