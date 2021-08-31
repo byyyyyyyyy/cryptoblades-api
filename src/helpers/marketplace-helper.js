@@ -274,7 +274,7 @@ const helpers = {
       const weapon = data;
       const properties = weapon._properties;
 
-      const weaponElement = helpers.getElementFromProperties(properties);
+      const weaponElement = helpers.traitNumberToName(helpers.getElementFromProperties(properties));
       const weaponStars = helpers.getStarsFromProperties(properties);
 
       const statPattern = helpers.getStatPatternFromProperties(properties);
@@ -309,7 +309,7 @@ const helpers = {
       const shield = data;
       const properties = shield._properties;
 
-      const shieldElement = helpers.getElementFromProperties(properties);
+      const shieldElement = helpers.traitNumberToName(helpers.getElementFromProperties(properties));
       const shieldStars = helpers.getStarsFromProperties(properties);
 
       const statPattern = helpers.getStatPatternFromProperties(properties);
