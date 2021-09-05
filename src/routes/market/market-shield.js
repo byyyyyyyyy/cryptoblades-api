@@ -23,8 +23,8 @@ exports.route = (app) => {
     if (minStars) minStars = +minStars;
     minStars = minStars || 0;
 
-    if (maxStars) maxStars = +maxStars;
-    maxStars = maxStars || 4;
+    if (maxStars || maxStars === 0) maxStars = +maxStars;
+    else maxStars = 4;
 
     sortBy = sortBy || 'timestamp';
 
@@ -46,10 +46,11 @@ exports.route = (app) => {
     if (sellerAddress) query.sellerAddress = sellerAddress;
     if (buyerAddress) query.buyerAddress = buyerAddress;
     if (!buyerAddress) query.buyerAddress = { $eq: null };
-    if (minStars || maxStars) {
+
+    if(minStars !== 0 || maxStars !== 4){
       query.shieldStars = {};
-      if (minStars) query.shieldStars.$gte = minStars;
-      if (maxStars) query.shieldStars.$lte = maxStars;
+      if (minStars || minStars === 0) query.shieldStars.$gte = minStars;
+      if (maxStars || maxStars === 0) query.shieldStars.$lte = maxStars;
     }
 
     if (minPrice || maxPrice) {
