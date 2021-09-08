@@ -47,9 +47,11 @@ exports.route = (app) => {
     if (buyerAddress) query.buyerAddress = buyerAddress;
     if (!buyerAddress) query.buyerAddress = { $eq: null };
 
-    query.weaponStars = {};
-    if (minStars) query.weaponStars.$gte = minStars;
-    if (maxStars || maxStars === 0) query.weaponStars.$lte = maxStars;
+    if (minStars || maxStars === 0) {
+      query.weaponStars = {};
+      if (minStars) query.weaponStars.$gte = minStars;
+      if (maxStars || maxStars === 0) query.weaponStars.$lte = maxStars;
+    }
 
     if (minPrice || maxPrice) {
       query.price = {};
