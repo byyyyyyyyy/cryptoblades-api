@@ -1,6 +1,7 @@
 const { DB } = require('../../db');
 const { redis } = require('../../helpers/redis-helper');
 
+const maxStarValue = 4;
 exports.route = (app) => {
   app.get('/static/market/shield', async (req, res) => {
     // clean incoming params
@@ -24,7 +25,7 @@ exports.route = (app) => {
     minStars = minStars || 0;
 
     if (maxStars) maxStars = +maxStars;
-    maxStars = maxStars || 4;
+    maxStars = maxStars ?? maxStarValue;
 
     sortBy = sortBy || 'timestamp';
 
@@ -46,10 +47,11 @@ exports.route = (app) => {
     if (sellerAddress) query.sellerAddress = sellerAddress;
     if (buyerAddress) query.buyerAddress = buyerAddress;
     if (!buyerAddress) query.buyerAddress = { $eq: null };
-    if (minStars || maxStars) {
+
+    if (minStars || maxStars !== maxStarValue) {
       query.shieldStars = {};
       if (minStars) query.shieldStars.$gte = minStars;
-      if (maxStars) query.shieldStars.$lte = maxStars;
+      if (maxStars !== maxStarValue) query.shieldStars.$lte = maxStars;
     }
 
     if (minPrice || maxPrice) {
