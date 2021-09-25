@@ -6,115 +6,133 @@ const multicall = require('../helpers/multicall');
 
 const { DB } = require('../db');
 
+const chainHelper = require('../helpers/chain-helper');
+
 exports.duration = process.env.NODE_ENV === 'production' ? 86400 : 600;
 
 const ITEMS_PER_PAGE = parseInt(process.env.MARKETPLACE_ITEMS_PAGE, 10) || 2500;
 const MAX_ITEMS_PER_UPDATE = parseInt(process.env.MAX_UPDATE, 10) || 500;
 
 exports.task = async () => {
+  if (!await chainHelper.init()) {
+    return;
+  }
+
   if (!await marketplaceHelper.init(':Update-Market')) {
     return;
   }
 
-  const tokenAddresses = [
-    marketplaceHelper.getCharactersAddress(),
-    marketplaceHelper.getWeaponsAddress(),
-    marketplaceHelper.getShieldsAddress(),
-  ];
+  const chains = chainHelper.getSupportedChains();
+  
+  for(var chain in chains) {
+    const chainName = chainHelper.getChainName(chains[chain]);
+    
+    console.log(
+      '[' + chains[chain] + '-' + chainName + ':Update-Market]'
+    );
 
-  const processed = {};
-  const toProcess = {};
+    const tokenAddresses = [
+      chainHelper.getCharacterAddress(chains[chain]),
+      chainHelper.getWeaponAddress(chains[chain]),
+      chainHelper.getShieldAddress(chains[chain])
+    ];
 
-  const queue = new PQueue({ concurrency: 50 });
+    const processed = {};
+    const toProcess = {};
 
-  const createOrUpdateBatch = async (nftAddress, items) => {
-    const collection = marketplaceHelper.getCollection(nftAddress);
-    const idKey = marketplaceHelper.getIdKey(nftAddress);
+    const queue = new PQueue({ concurrency: 50 });
 
-    if (!collection || !idKey) return;
+    const createOrUpdateBatch = async (nftAddress, items) => {
+      const collection = chainHelper.getCollection(nftAddress);
+      const idKey = chainHelper.getIdKey(nftAddress);
+      const net = chainHelper.getNetworkValueOfChain(chains[chain]);
+      const type = chainHelper.getNftTypeOfAddress(nftAddress);
 
-    const multicallData = marketplaceHelper.getNFTDataCall(nftAddress, items.map((item) => item.nftId));
+      if (!collection || !idKey || !net || !type) return;
 
-    const data = await pRetry(() => multicall(marketplaceHelper.getWeb3(), multicallData.abi, multicallData.calls), { retries: 5 });
+      const multicallData = marketplaceHelper.getNFTDataCall(type, nftAddress, items.map((item) => item.nftId));
 
-    const bulk = DB[collection].initializeUnorderedBulkOp();
+      const data = await pRetry(() => multicall(chainHelper.getWeb3(chains[chain]), chainHelper.getMulticallAddress(chains[chain]), multicallData.abi, multicallData.calls), { retries: 5 });
 
-    items.forEach((item, i) => {
-      bulk
-        .find({ [idKey]: item.nftId })
-        .upsert()
-        .replaceOne(
-          marketplaceHelper.processNFTData(nftAddress, item.nftId, item.price, item.seller, data[i]),
-        );
-    });
+      const bulk = DB[collection].initializeUnorderedBulkOp();
 
-    const bulkResult = await pRetry(() => bulk.execute(), { retries: 5 });
+      items.forEach((item, i) => {
+        bulk
+          .find({ [idKey]: item.nftId, network: net })
+          .upsert()
+          .replaceOne(
+            marketplaceHelper.processNFTData(type, item.nftId, net, item.price, item.seller, data[i]),
+          );
+      });
 
-    processed[nftAddress] += bulkResult.nUpserted + bulkResult.nModified;
-  };
+      const bulkResult = await pRetry(() => bulk.execute(), { retries: 5 });
 
-  const checkToProcess = (address, maxLength) => {
-    if (toProcess[address].length > maxLength) {
-      const items = [...toProcess[address]];
-      toProcess[address] = [];
-      queue.add(() => createOrUpdateBatch(address, items));
-    }
-  };
+      processed[nftAddress] += bulkResult.nUpserted + bulkResult.nModified;
+    };
 
-  tokenAddresses.forEach((address) => {
-    toProcess[address] = [];
-    processed[address] = 0;
-
-    const runQueue = (start) => async () => {
-      const results = await pRetry(() => marketplaceHelper
-        .getNftMarketPlace()
-        .methods
-        .getListingSlice(address, start, ITEMS_PER_PAGE).call(),
-      { retries: 5 });
-
-      console.log(
-        '[MARKET:Update-Market]',
-        marketplaceHelper.getTypeName(address),
-        processed[address],
-        start,
-        results.returnedCount,
-        ITEMS_PER_PAGE,
-      );
-
-      for (let i = 0; results.returnedCount > i; i += 1) {
-        toProcess[address].push({
-          nftId: results.ids[i],
-          price: results.prices[i],
-          seller: results.sellers[i],
-        });
-
-        checkToProcess(address, MAX_ITEMS_PER_UPDATE);
-      }
-
-      if (results.returnedCount >= ITEMS_PER_PAGE) {
-        queue.add(runQueue(start + ITEMS_PER_PAGE * 5));
-      } else {
-        checkToProcess(address, 0);
+    const checkToProcess = (address, maxLength) => {
+      if (toProcess[address].length > maxLength) {
+        const items = [...toProcess[address]];
+        toProcess[address] = [];
+        queue.add(() => createOrUpdateBatch(address, items));
       }
     };
 
-    for (let i = 0; i < 5; i += 1) {
-      queue.add(runQueue(ITEMS_PER_PAGE * i));
-    }
-  });
+    tokenAddresses.forEach((address) => {
+      toProcess[address] = [];
+      processed[address] = 0;
 
-  await queue.onIdle();
+      const runQueue = (start) => async () => {
+        const results = await pRetry(() => marketplaceHelper
+          .getNftMarketPlace(chains[chain], chainHelper.getMarketAddress(chains[chain]), chainHelper.getRPC(chains[chain]))
+          .methods
+          .getListingSlice(address, start, ITEMS_PER_PAGE).call(),
+          { retries: 5 });
 
-  tokenAddresses.forEach((address) => {
-    checkToProcess(address, 0);
-  });
+        console.log(
+          '[' + chainName + '-MARKET:Update-Market]',
+          chainHelper.getNftTypeOfAddress(address),
+          processed[address],
+          start,
+          results.returnedCount,
+          ITEMS_PER_PAGE,
+        );
 
-  await queue.onIdle();
+        for (let i = 0; results.returnedCount > i; i += 1) {
+          toProcess[address].push({
+            nftId: results.ids[i],
+            price: results.prices[i],
+            seller: results.sellers[i],
+          });
 
-  tokenAddresses.forEach((address) => {
-    console.log(
-      '[MARKET:Update-Market]',
-      `Processed ${processed[address]} ${marketplaceHelper.getTypeName(address)}`,
-    );
-  });
+          checkToProcess(address, MAX_ITEMS_PER_UPDATE);
+        }
+
+        if (results.returnedCount >= ITEMS_PER_PAGE) {
+          queue.add(runQueue(start + ITEMS_PER_PAGE * 5));
+        } else {
+          checkToProcess(address, 0);
+        }
+      };
+
+      for (let i = 0; i < 5; i += 1) {
+        queue.add(runQueue(ITEMS_PER_PAGE * i));
+      }
+    });
+
+    await queue.onIdle();
+
+    tokenAddresses.forEach((address) => {
+      checkToProcess(address, 0);
+    });
+
+    await queue.onIdle();
+
+    tokenAddresses.forEach((address) => {
+      console.log(
+        `[${chainName}-MARKET:Update-Market]`,
+        `Processed ${processed[address]} ${chainHelper.getNftTypeOfAddress(address)}`,
+      );
+    });
+  }
 };

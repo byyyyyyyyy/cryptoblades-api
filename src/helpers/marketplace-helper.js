@@ -7,6 +7,8 @@ const fs = require('fs-extra');
 
 const updateABI = require('../tasks/update-abi');
 
+const chainHelper = require('../helpers/chain-helper');
+
 const EXPECTED_PONG_BACK = parseInt(process.env.WEBSOCKET_PROVIDER_PONG_TIMEOUT, 10) || 15000;
 const KEEP_ALIVE_CHECK_INTERVAL = parseInt(process.env.WEBSOCKET_PROVIDER_KEEP_ALIVE, 10) || 7500;
 
@@ -21,10 +23,10 @@ const helpers = {
   weaponsAbiPath: './src/data/abi/Weapons.json',
   shieldsAbiPath: './src/data/abi/Shields.json',
 
-  nftMarketPlace: null,
-  weapons: null,
-  characters: null,
-  shields: null,
+  nftMarketPlace: [],
+  weapons: [],
+  characters: [],
+  shields: [],
 
   getAbiFromAddress: (nftAddress) => {
     if (helpers.isCharacter(nftAddress)) {
@@ -36,6 +38,22 @@ const helpers = {
     }
 
     if (helpers.isShield(nftAddress)) {
+      return fs.readJSONSync(helpers.shieldsAbiPath).abi;
+    }
+
+    return [];
+  },
+
+  getAbiFromType: (nftType) => {
+    if (nftType === 'character') {
+      return fs.readJSONSync(helpers.charactersAbiPath).abi;
+    }
+
+    if (nftType === 'weapon') {
+      return fs.readJSONSync(helpers.weaponsAbiPath).abi;
+    }
+
+    if (nftType === 'shield') {
       return fs.readJSONSync(helpers.shieldsAbiPath).abi;
     }
 
@@ -85,19 +103,21 @@ const helpers = {
     return true;
   },
 
-  provider: null,
-  providerEmitter: new EventEmitter(),
-  getProvider: () => {
-    if (helpers.provider) {
-      return helpers.provider;
+  provider: [],
+  providerEmitter: [],
+  getProvider: (chain, rpc) => {
+    if (helpers.provider[chain] !== undefined) {
+      return helpers.provider[chain];
     }
 
     const buildProvider = () => {
-      helpers.provider = new ethers.providers.WebSocketProvider(
-        process.env.WEBSOCKET_PROVIDER_URL, // Edit this with your provider url
+      helpers.provider[chain] = new ethers.providers.WebSocketProvider(
+        rpc
       );
 
-      helpers.keepAlive(helpers.provider, (err) => {
+      helpers.providerEmitter[chain] = new EventEmitter();
+
+      helpers.keepAlive(helpers.provider[chain], (err) => {
         console.error('====================================================');
         console.error('=================Provider restarted=================');
         console.error(err);
@@ -105,7 +125,7 @@ const helpers = {
         console.error('====================================================');
 
         buildProvider();
-        helpers.providerEmitter.emit('reconnected');
+        helpers.providerEmitter[chain].emit('reconnected');
       });
     };
 
@@ -116,71 +136,71 @@ const helpers = {
 
   getWeb3: () => new Web3(process.env.WEBSOCKET_PROVIDER_URL),
 
-  getContract: (address, abiPath) => new ethers.Contract(
+  getContract: (chain, address, abiPath) => new ethers.Contract(
     address,
     fs.readJSONSync(abiPath).abi,
-    helpers.getProvider(),
+    helpers.getProvider(chain),
   ),
 
-  getNftMarketPlace: () => {
-    if (helpers.nftMarketPlace) {
-      return helpers.nftMarketPlace;
+  getNftMarketPlace: (chain, address, rpc) => {
+    if (helpers.nftMarketPlace[chain] !== undefined) {
+      return helpers.nftMarketPlace[chain];
     }
 
-    const web3 = new Web3(process.env.WEBSOCKET_PROVIDER_URL);
+    const web3 = new Web3(rpc);
     const Market = new web3.eth.Contract(
       fs.readJSONSync(helpers.marketplaceAbiPath).abi,
-      helpers.getMarketplaceAddress(),
+      address,
     );
 
-    helpers.nftMarketPlace = Market;
+    helpers.nftMarketPlace[chain] = Market;
 
-    return helpers.nftMarketPlace;
+    return helpers.nftMarketPlace[chain];
   },
 
-  getWeapons: () => {
-    if (helpers.weapons) {
-      return helpers.weapons;
+  getWeapons: (chain, address) => {
+    if (helpers.weapons[chain] !== undefined) {
+      return helpers.weapons[chain];
     }
 
-    helpers.weapons = helpers.getContract(helpers.getWeaponsAddress(), helpers.weaponsAbiPath);
+    helpers.weapons[chain] = helpers.getContract(chain, address, helpers.weaponsAbiPath);
 
-    helpers.providerEmitter.on('reconnected', () => {
-      helpers.weapons = helpers.weapons.connect(helpers.getProvider());
-      helpers.providerEmitter.emit('reconnected:weapons');
+    helpers.providerEmitter[chain].on('reconnected', () => {
+      helpers.weapons[chain] = helpers.weapons[chain].connect(helpers.getProvider(chain));
+      helpers.providerEmitter[chain].emit('reconnected:weapons');
     });
 
-    return helpers.weapons;
+    return helpers.weapon[chain];
   },
 
-  getCharacters: () => {
-    if (helpers.characters) {
-      return helpers.characters;
+  getCharacters: (chain, address) => {
+    if (helpers.characters[chain] !== undefined) {
+      return helpers.characters[chain];
     }
 
-    helpers.characters = helpers.getContract(helpers.getCharactersAddress(), helpers.charactersAbiPath);
+    helpers.characters[chain] = helpers.getContract(chain, address, helpers.charactersAbiPath);
 
-    helpers.providerEmitter.on('reconnected', () => {
-      helpers.characters = helpers.characters.connect(helpers.getProvider());
-      helpers.providerEmitter.emit('reconnected:characters');
+    helpers.providerEmitter[chain].on('reconnected', () => {
+      helpers.characters[chain] = helpers.characters[chain].connect(helpers.getProvider(chain));
+      helpers.providerEmitter[chain].emit('reconnected:characters');
     });
 
-    return helpers.characters;
+    return helpers.characters[chain];
   },
 
-  getShields: () => {
-    if (helpers.shields) {
-      return helpers.shields;
+  getShields: (chain, address) => {
+    if (helpers.shields !== undefined) {
+      return helpers.shields[chain];
     }
 
-    helpers.shields = helpers.getContract(helpers.getShieldsAddress(), helpers.shieldsAbiPath);
+    helpers.shields[chain] = helpers.getContract(chain, address, helpers.shieldsAbiPath);
 
-    helpers.providerEmitter.on('reconnected', () => {
-      helpers.shields = helpers.shields.connect(helpers.getProvider());
-      helpers.providerEmitter.emit('reconnected:shields');
+    helpers.providerEmitter[chain].on('reconnected', () => {
+      helpers.shields[chain] = helpers.shields[chain].connect(helpers.getProvider(chain));
+      helpers.providerEmitter[chain].emit('reconnected:shields');
     });
 
-    return helpers.shields;
+    return helpers.shields[chain];
   },
 
   WeaponElement: {
@@ -227,17 +247,17 @@ const helpers = {
     return null;
   },
 
-  getFinalPriceCall: (items) => ({
+  getFinalPriceCall: (marketAddress, items) => ({
     abi: fs.readJSONSync(helpers.marketplaceAbiPath).abi,
     calls: items.map((item) => ({
-      address: helpers.getMarketplaceAddress(),
+      address: marketAddress,
       name: 'getFinalPrice',
       params: [item.address, item.nftId],
     })),
   }),
 
-  getNFTDataCall: (nftAddress, nftIds) => ({
-    abi: helpers.getAbiFromAddress(nftAddress),
+  getNFTDataCall: (type, nftAddress, nftIds) => ({
+    abi: helpers.getAbiFromType(type),
     calls: nftIds.map((nftId) => ({
       address: nftAddress,
       name: 'get',
@@ -245,41 +265,41 @@ const helpers = {
     })),
   }),
 
-  getNFTData: async (nftAddress, nftId, rawPrice, sellerAddress) => {
+  getNFTData: async (type, nftId, rawPrice, sellerAddress) => {
     let data;
 
-    if (helpers.isCharacter(nftAddress)) {
+    if (type === 'character') {
       data = await helpers.getCharacters().get(nftId);
     }
 
-    if (helpers.isWeapon(nftAddress)) {
+    if (type === 'weapon') {
       data = await helpers.getWeapons().get(nftId);
     }
 
-    if (helpers.isShield(nftAddress)) {
+    if (type === 'shield') {
       data = await helpers.getShields().get(nftId);
     }
 
-    return helpers.processNFTData(nftAddress, nftId, rawPrice, sellerAddress, data);
+    return helpers.processNFTData(type, nftId, rawPrice, sellerAddress, data);
   },
 
-  processNFTData: (nftAddress, nftId, rawPrice, sellerAddress, data) => {
+  processNFTData: (type, nftId, chain, rawPrice, sellerAddress, data) => {
     const price = helpers.realPrice(rawPrice);
     const timestamp = Date.now();
 
-    if (helpers.isCharacter(nftAddress)) {
+    if (type === 'character') {
       const character = data;
       const charLevel = parseInt(character[1], 10);
       const charElement = helpers.traitNumberToName(+character[2]);
 
       const ret = {
-        charId: nftId, charLevel, charElement, price, timestamp, sellerAddress, network: 'bsc',
+        charId: nftId, charLevel, charElement, price, timestamp, sellerAddress, network: chain,
       };
 
       return ret;
     }
 
-    if (helpers.isWeapon(nftAddress)) {
+    if (type === 'weapon') {
       const weapon = data;
       const properties = weapon._properties;
 
@@ -308,13 +328,13 @@ const helpers = {
         price,
         timestamp,
         sellerAddress,
-        network: 'bsc',
+        network: chain,
       };
 
       return ret;
     }
 
-    if (helpers.isShield(nftAddress)) {
+    if (type === 'shield') {
       const shield = data;
       const properties = shield._properties;
 
@@ -343,7 +363,7 @@ const helpers = {
         price,
         timestamp,
         sellerAddress,
-        network: 'bsc',
+        network: chain,
       };
     }
 

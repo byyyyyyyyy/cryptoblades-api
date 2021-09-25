@@ -4,116 +4,132 @@ const banned = require('../../banned.json');
 
 const { DB } = require('../db');
 
+const chainHelper = require('../helpers/chain-helper');
+
 const listen = async () => {
-  if (!process.env.WEBSOCKET_PROVIDER_URL) {
-    console.log('No WEBSOCKET_PROVIDER_URL, not watching for market updates...');
-    return;
-  }
 
   if (!await marketplaceHelper.init()) {
     return;
   }
 
-  const createOrUpdate = async (nftAddress, nftId, price, seller) => {
-    if (banned.includes(seller)) return;
-    if (await marketplaceHelper.isUserBanned(seller)) return;
+  if (!await chainHelper.init()) {
+    return;
+  }
 
-    const collection = marketplaceHelper.getCollection(nftAddress);
-    const data = await marketplaceHelper.getNFTData(nftAddress, nftId, price, seller);
-    const idKey = marketplaceHelper.getIdKey(nftAddress);
+  let chains = chainHelper.getSupportedChains();
 
-    if (!collection || !idKey) return;
+  for(var chain in chains) {
+    const chainName = chainHelper.getChainName(chains[chain]);
 
-    await DB[collection].replaceOne({ [idKey]: nftId }, data, { upsert: true });
-  };
+    console.log(
+      '[' + chains[chain] + '-' + chainName + ':Listener]'
+    );
 
-  const remove = async (nftAddress, nftId) => {
-    const collection = marketplaceHelper.getCollection(nftAddress);
-    const idKey = marketplaceHelper.getIdKey(nftAddress);
+    const createOrUpdate = async (nftAddress, nftId, price, seller) => {
+      if (banned.includes(seller)) return;
+      if (await marketplaceHelper.isUserBanned(seller)) return;
 
-    if (!collection || !idKey) return;
+      const collection = chainHelper.getCollection(nftAddress);
+      const type = chainHelper.getNftTypeOfAddress(nftAddress);
+      const data = await marketplaceHelper.getNFTData(type, nftId, price, seller);
+      const idKey = chainHelper.getIdKey(nftAddress);
+      const net = chainHelper.getNetworkValueOfChain(nftAddress);
 
-    await DB[collection].deleteOne({ [idKey]: nftId });
-  };
+      if (!collection || !idKey || !net) return;
 
-  const addTransaction = async (nftAddress, nftId) => {
-    const collection = marketplaceHelper.getCollection(nftAddress);
-    const idKey = marketplaceHelper.getIdKey(nftAddress);
-
-    if (!collection || !idKey) return;
-
-    const currentMarketEntry = await DB[collection].findOne({ [idKey]: nftId });
-    if (currentMarketEntry) {
-      const type = marketplaceHelper.getTypeName(nftAddress);
-      const { _id, ...data } = currentMarketEntry;
-      await DB.$marketSales.insert({ type, [type]: data });
-    }
-  };
-
-  const onNewListing = async (seller, nftAddress, nftId, price) => {
-    createOrUpdate(nftAddress, nftId.toString(), price, seller).then(() => {
-      console.log('[MARKET]', `Add ${marketplaceHelper.getTypeName(nftAddress)} ${nftId} from ${seller} for ${marketplaceHelper.realPrice(price)}`);
-    }).catch((err) => console.log(`[MARKET ADD ERROR] ${err.message}`));
-  };
-
-  const onListingPriceChange = async (seller, nftAddress, nftId, price) => {
-    createOrUpdate(nftAddress, nftId.toString(), price, seller).then(() => {
-      console.log('[MARKET]', `Change ${marketplaceHelper.getTypeName(nftAddress)} ${nftId} from ${seller} for ${marketplaceHelper.realPrice(price)}`);
-    }).catch((err) => console.log(`[MARKET CHANGE ERROR] ${err.message}`));
-  };
-
-  const onCancelledListing = async (seller, nftAddress, nftId) => {
-    remove(nftAddress, nftId.toString()).then(() => {
-      console.log('[MARKET]', `Cancel ${marketplaceHelper.getTypeName(nftAddress)} ${nftId} from ${seller}`);
-    }).catch((err) => console.log(`[MARKET CANCEL ERROR] ${err.message}`));
-  };
-
-  const onPurchasedListing = async (buyer, seller, nftAddress, nftId) => {
-    addTransaction(nftAddress, nftId.toString()).then(() => {
-      remove(nftAddress, nftId.toString()).then(() => {
-        console.log('[MARKET]', `Sell ${marketplaceHelper.getTypeName(nftAddress)} ${nftId} from ${seller} to ${buyer}`);
-      }).catch((err) => console.log(`[MARKET PURCHASE1 ERROR] ${err.message}`));
-    }).catch((err) => console.log(`[MARKET PURCHASE2 ERROR] ${err.message}`));
-  };
-
-  const setup = () => {
-    const nftMarketPlace = marketplaceHelper.getNftMarketPlace();
-
-    const events = {
-      NewListing: {
-        func: onNewListing,
-        argsArr: (res) => ([res.seller, res.nftAddress, res.nftID, res.price]),
-      },
-
-      ListingPriceChange: {
-        func: onListingPriceChange,
-        argsArr: (res) => ([res.seller, res.nftAddress, res.nftID, res.newPrice]),
-      },
-
-      CancelledListing: {
-        func: onCancelledListing,
-        argsArr: (res) => ([res.seller, res.nftAddress, res.nftID]),
-      },
-
-      PurchasedListing: {
-        func: onPurchasedListing,
-        argsArr: (res) => ([res.buyer, res.seller, res.nftAddress, res.nftID]),
-      },
+      await DB[collection].replaceOne({ [idKey]: nftId, network: net }, data, { upsert: true });
     };
 
-    nftMarketPlace.events.allEvents({ filter: {} })
-      .on('data', (event) => {
-        if (!events[event.event]) return;
+    const remove = async (nftAddress, nftId) => {
+      const collection = chainHelper.getCollection(nftAddress);
+      const idKey = chainHelper.getIdKey(nftAddress);
+      const net = chainHelper.getNetworkValueOfChain(nftAddress);
 
-        events[event.event].func(...events[event.event].argsArr(event.returnValues));
-      }).on('error', (err) => {
-        console.error('[MARKET]', err);
-      });
-  };
+      if (!collection || !idKey || !net) return;
 
-  setup();
+      await DB[collection].deleteOne({ [idKey]: nftId, network: net });
+    };
 
-  marketplaceHelper.providerEmitter.on('reconnected:nftMarketPlace', setup);
+   const addTransaction = async (nftAddress, nftId) => {
+      const collection = chainHelper.getCollection(nftAddress);
+      const idKey = chainHelper.getIdKey(nftAddress);
+      const net = chainHelper.getNetworkValueOfChain(nftAddress);
+
+      if (!collection || !idKey || !net) return;
+
+      const currentMarketEntry = await DB[collection].findOne({ [idKey]: nftId, network: net });
+      if (currentMarketEntry) {
+        const type = chainHelper.getTypeName(nftAddress);
+        const { _id, ...data } = currentMarketEntry;
+        await DB.$marketSales.insert({ type, [type]: data });
+      }
+    };
+
+    const onNewListing = async (seller, nftAddress, nftId, price) => {
+      createOrUpdate(nftAddress, nftId.toString(), price, seller).then(() => {
+       console.log('[' + chains[chain] + '-MARKET]', `Add ${chainHelper.getTypeName(nftAddress)} ${nftId} from ${seller} for ${marketplaceHelper.realPrice(price)}`);
+     }).catch((err) => console.log(`[${chains[chain]}-MARKET ADD ERROR] ${err.message}`));
+    };
+
+   const onListingPriceChange = async (seller, nftAddress, nftId, price) => {
+      createOrUpdate(nftAddress, nftId.toString(), price, seller).then(() => {
+       console.log('[' + chains[chain] + '-MARKET]', `Change ${chainHelper.getTypeName(nftAddress)} ${nftId} from ${seller} for ${marketplaceHelper.realPrice(price)}`);
+     }).catch((err) => console.log(`[${chains[chain]}-MARKET CHANGE ERROR] ${err.message}`));
+    };
+
+   const onCancelledListing = async (seller, nftAddress, nftId) => {
+     remove(nftAddress, nftId.toString()).then(() => {
+       console.log('[' + chains[chain] + '-MARKET]', `Cancel ${chainHelper.getTypeName(nftAddress)} ${nftId} from ${seller}`);
+     }).catch((err) => console.log(`[${chains[chain]}-MARKET CANCEL ERROR] ${err.message}`));
+   };
+
+   const onPurchasedListing = async (buyer, seller, nftAddress, nftId) => {
+     addTransaction(nftAddress, nftId.toString()).then(() => {
+       remove(nftAddress, nftId.toString()).then(() => {
+         console.log('[' + chains[chain] + 'MARKET]', `Sell ${chainHelper.getTypeName(nftAddress)} ${nftId} from ${seller} to ${buyer}`);
+       }).catch((err) => console.log(`[${chains[chain]}-MARKET PURCHASE1 ERROR] ${err.message}`));
+     }).catch((err) => console.log(`[${chains[chain]}-MARKET PURCHASE2 ERROR] ${err.message}`));
+   };
+
+   const setup = () => {
+     const nftMarketPlace = chainHelper.getMarketAddress(chains[chain]);
+
+      const events = {
+        NewListing: {
+         func: onNewListing,
+         argsArr: (res) => ([res.seller, res.nftAddress, res.nftID, res.price]),
+       },
+
+       ListingPriceChange: {
+         func: onListingPriceChange,
+         argsArr: (res) => ([res.seller, res.nftAddress, res.nftID, res.newPrice]),
+       },
+
+        CancelledListing: {
+          func: onCancelledListing,
+         argsArr: (res) => ([res.seller, res.nftAddress, res.nftID]),
+        },
+
+        PurchasedListing: {
+         func: onPurchasedListing,
+         argsArr: (res) => ([res.buyer, res.seller, res.nftAddress, res.nftID]),
+       },
+      };
+
+      nftMarketPlace.events.allEvents({ filter: {} })
+       .on('data', (event) => {
+         if (!events[event.event]) return;
+
+         events[event.event].func(...events[event.event].argsArr(event.returnValues));
+        }).on('error', (err) => {
+          console.error('[' + chains[chain] + '-MARKET]', err);
+        });
+    };
+
+    setup();
+
+    marketplaceHelper.providerEmitter[chains[chain]].on('reconnected:nftMarketPlace', setup);
+  }
 };
 
 module.exports = {
