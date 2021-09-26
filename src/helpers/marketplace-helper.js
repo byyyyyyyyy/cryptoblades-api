@@ -7,17 +7,10 @@ const fs = require('fs-extra');
 
 const updateABI = require('../tasks/update-abi');
 
-const chainHelper = require('../helpers/chain-helper');
-
 const EXPECTED_PONG_BACK = parseInt(process.env.WEBSOCKET_PROVIDER_PONG_TIMEOUT, 10) || 15000;
 const KEEP_ALIVE_CHECK_INTERVAL = parseInt(process.env.WEBSOCKET_PROVIDER_KEEP_ALIVE, 10) || 7500;
 
 const helpers = {
-  getMarketplaceAddress: () => process.env.ADDRESS_MARKET || '0x90099dA42806b21128A094C713347C7885aF79e2',
-  getCharactersAddress: () => process.env.ADDRESS_CHARACTER || '0xc6f252c2CdD4087e30608A35c022ce490B58179b',
-  getWeaponsAddress: () => process.env.ADDRESS_WEAPON || '0x7E091b0a220356B157131c831258A9C98aC8031A',
-  getShieldsAddress: () => process.env.ADDRESS_SHIELD || '0xf9E9F6019631bBE7db1B71Ec4262778eb6C3c520',
-
   marketplaceAbiPath: './src/data/abi/NFTMarket.json',
   charactersAbiPath: './src/data/abi/Characters.json',
   weaponsAbiPath: './src/data/abi/Weapons.json',
@@ -105,14 +98,14 @@ const helpers = {
 
   provider: [],
   providerEmitter: [],
-  getProvider: (chain, rpc) => {
+  getProvider: (chain, wsp) => {
     if (helpers.provider[chain] !== undefined) {
       return helpers.provider[chain];
     }
 
     const buildProvider = () => {
       helpers.provider[chain] = new ethers.providers.WebSocketProvider(
-        rpc
+        wsp,
       );
 
       helpers.providerEmitter[chain] = new EventEmitter();
@@ -136,10 +129,10 @@ const helpers = {
 
   getWeb3: () => new Web3(process.env.WEBSOCKET_PROVIDER_URL),
 
-  getContract: (chain, address, abiPath) => new ethers.Contract(
+  getContract: (chain, address, abiPath, wsp) => new ethers.Contract(
     address,
     fs.readJSONSync(abiPath).abi,
-    helpers.getProvider(chain),
+    helpers.getProvider(chain, wsp),
   ),
 
   getNftMarketPlace: (chain, address, rpc) => {
@@ -158,45 +151,45 @@ const helpers = {
     return helpers.nftMarketPlace[chain];
   },
 
-  getWeapons: (chain, address) => {
+  getWeapons: (chain, address, wsp) => {
     if (helpers.weapons[chain] !== undefined) {
       return helpers.weapons[chain];
     }
 
-    helpers.weapons[chain] = helpers.getContract(chain, address, helpers.weaponsAbiPath);
+    helpers.weapons[chain] = helpers.getContract(chain, address, helpers.weaponsAbiPath, wsp);
 
     helpers.providerEmitter[chain].on('reconnected', () => {
-      helpers.weapons[chain] = helpers.weapons[chain].connect(helpers.getProvider(chain));
+      helpers.weapons[chain] = helpers.weapons[chain].connect(helpers.getProvider(chain, wsp));
       helpers.providerEmitter[chain].emit('reconnected:weapons');
     });
 
     return helpers.weapon[chain];
   },
 
-  getCharacters: (chain, address) => {
+  getCharacters: (chain, address, wsp) => {
     if (helpers.characters[chain] !== undefined) {
       return helpers.characters[chain];
     }
 
-    helpers.characters[chain] = helpers.getContract(chain, address, helpers.charactersAbiPath);
+    helpers.characters[chain] = helpers.getContract(chain, address, helpers.charactersAbiPath, wsp);
 
     helpers.providerEmitter[chain].on('reconnected', () => {
-      helpers.characters[chain] = helpers.characters[chain].connect(helpers.getProvider(chain));
+      helpers.characters[chain] = helpers.characters[chain].connect(helpers.getProvider(chain, wsp));
       helpers.providerEmitter[chain].emit('reconnected:characters');
     });
 
     return helpers.characters[chain];
   },
 
-  getShields: (chain, address) => {
+  getShields: (chain, address, wsp) => {
     if (helpers.shields !== undefined) {
       return helpers.shields[chain];
     }
 
-    helpers.shields[chain] = helpers.getContract(chain, address, helpers.shieldsAbiPath);
+    helpers.shields[chain] = helpers.getContract(chain, address, helpers.shieldsAbiPath, wsp);
 
     helpers.providerEmitter[chain].on('reconnected', () => {
-      helpers.shields[chain] = helpers.shields[chain].connect(helpers.getProvider(chain));
+      helpers.shields[chain] = helpers.shields[chain].connect(helpers.getProvider(chain, wsp));
       helpers.providerEmitter[chain].emit('reconnected:shields');
     });
 
@@ -225,9 +218,6 @@ const helpers = {
   getStat3Trait: (statPattern) => (Math.floor(Math.floor(statPattern / 5) / 5) % 5),
 
   realPrice: (price) => +ethers.utils.formatEther(price),
-  isCharacter: (nftAddress) => nftAddress === helpers.getCharactersAddress(),
-  isWeapon: (nftAddress) => nftAddress === helpers.getWeaponsAddress(),
-  isShield: (nftAddress) => nftAddress === helpers.getShieldsAddress(),
 
   getCollection: (nftAddress) => {
     if (helpers.isCharacter(nftAddress)) {
@@ -265,22 +255,22 @@ const helpers = {
     })),
   }),
 
-  getNFTData: async (type, nftId, rawPrice, sellerAddress) => {
+  getNFTData: async (type, nftAddress, chain, wsp, nftId, rawPrice, sellerAddress) => {
     let data;
 
     if (type === 'character') {
-      data = await helpers.getCharacters().get(nftId);
+      data = await helpers.getCharacters(chain, nftAddress, wsp).get(nftId);
     }
 
     if (type === 'weapon') {
-      data = await helpers.getWeapons().get(nftId);
+      data = await helpers.getWeapons(chain, nftAddress, wsp).get(nftId);
     }
 
     if (type === 'shield') {
-      data = await helpers.getShields().get(nftId);
+      data = await helpers.getShields(chain, nftAddress, wsp).get(nftId);
     }
 
-    return helpers.processNFTData(type, nftId, rawPrice, sellerAddress, data);
+    return helpers.processNFTData(type, nftId, chain, rawPrice, sellerAddress, data);
   },
 
   processNFTData: (type, nftId, chain, rawPrice, sellerAddress, data) => {
@@ -368,38 +358,6 @@ const helpers = {
     }
 
     return {};
-  },
-
-  getIdKey: (nftAddress) => {
-    if (helpers.isCharacter(nftAddress)) {
-      return 'charId';
-    }
-
-    if (helpers.isWeapon(nftAddress)) {
-      return 'weaponId';
-    }
-
-    if (helpers.isShield(nftAddress)) {
-      return 'shieldId';
-    }
-
-    return '';
-  },
-
-  getTypeName: (nftAddress) => {
-    if (helpers.isCharacter(nftAddress)) {
-      return 'character';
-    }
-
-    if (helpers.isWeapon(nftAddress)) {
-      return 'weapon';
-    }
-
-    if (helpers.isShield(nftAddress)) {
-      return 'shield';
-    }
-
-    return '';
   },
 
   isUserBanned: async (seller) => helpers.getNftMarketPlace().methods.isUserBanned(seller).call(),
