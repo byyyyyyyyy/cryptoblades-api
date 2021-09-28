@@ -141,5 +141,5 @@ exports.task = async () => {
     iterations.push(chainIteration(chains[i]));
   }
 
-  await Promise.all(iterations);
+  await Promise.all(iterations).catch(console.log);
 };

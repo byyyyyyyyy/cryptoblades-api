@@ -86,7 +86,7 @@ const chainIteration = async (chain) => {
     const events = {
       NewListing: {
         func: onNewListing,
-        argsArr: (res) => ([res.seller, res.nftAddress, res.nftID, res.price]),
+        argsArr: (res) => ([res.seller, res.nftAddress, res.nftID, res.price, res.targetBuyer]),
       },
 
       ListingPriceChange: {
@@ -136,7 +136,7 @@ const listen = async () => {
     iterations.push(chainIteration(chains[i]));
   }
 
-  await Promise.all(iterations);
+  await Promise.all(iterations).catch(console.log);
 };
 
 module.exports = {

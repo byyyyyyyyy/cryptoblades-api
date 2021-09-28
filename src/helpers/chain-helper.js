@@ -1,8 +1,6 @@
 const fs = require('fs-extra');
 const Web3 = require('web3');
 
-const env = 'production';
-
 const helpers = {
   data: null,
   supportedChains: null,
@@ -104,9 +102,11 @@ const helpers = {
     helpers.addressToNftType = {};
 
     const result = fs.readJSONSync(helpers.dataPath);
+    const env = result.environment;
+
     helpers.supportedChains = result.supportedChains;
 
-    console.log('[Chain Helper]', 'Loading chains');
+    console.log('[Chain Helper]', `Loading chains for ${env}`);
     for (let i = 0; i < helpers.supportedChains.length; i += 1) {
       helpers.load(helpers.supportedChains[i], result.environments[env].chains[helpers.supportedChains[i]]);
     }

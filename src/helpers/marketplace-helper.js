@@ -156,12 +156,16 @@ const helpers = {
       return helpers.weapons[chain];
     }
 
+    console.log('[Marketplace Hepler]',`Creating weapons provider for ${chain}`);
+
     helpers.weapons[chain] = helpers.getContract(chain, address, helpers.weaponsAbiPath, wsp);
 
     helpers.providerEmitter[chain].on('reconnected', () => {
       helpers.weapons[chain] = helpers.weapons[chain].connect(helpers.getProvider(chain, wsp));
       helpers.providerEmitter[chain].emit('reconnected:weapons');
     });
+
+    console.log('[Marketplace Hepler]',`Created weapons provider for ${chain}`);
 
     return helpers.weapon[chain];
   },
@@ -171,12 +175,16 @@ const helpers = {
       return helpers.characters[chain];
     }
 
+    console.log('[Marketplace Hepler]',`Creating character provider for ${chain}`);
+
     helpers.characters[chain] = helpers.getContract(chain, address, helpers.charactersAbiPath, wsp);
 
     helpers.providerEmitter[chain].on('reconnected', () => {
       helpers.characters[chain] = helpers.characters[chain].connect(helpers.getProvider(chain, wsp));
       helpers.providerEmitter[chain].emit('reconnected:characters');
     });
+
+    console.log('[Marketplace Hepler]',`Created character provider for ${chain}`);
 
     return helpers.characters[chain];
   },
@@ -186,12 +194,16 @@ const helpers = {
       return helpers.shields[chain];
     }
 
+    console.log('[Marketplace Hepler]',`Creating shield provider for ${chain}`);
+
     helpers.shields[chain] = helpers.getContract(chain, address, helpers.shieldsAbiPath, wsp);
 
     helpers.providerEmitter[chain].on('reconnected', () => {
       helpers.shields[chain] = helpers.shields[chain].connect(helpers.getProvider(chain, wsp));
       helpers.providerEmitter[chain].emit('reconnected:shields');
     });
+
+    console.log('[Marketplace Hepler]',`Created shield provider for ${chain}`);
 
     return helpers.shields[chain];
   },
