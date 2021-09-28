@@ -156,7 +156,7 @@ const helpers = {
       return helpers.weapons[chain];
     }
 
-    console.log('[Marketplace Hepler]',`Creating weapons provider for ${chain}`);
+    console.log('[Marketplace Hepler]', `Creating weapons provider for ${chain}`);
 
     helpers.weapons[chain] = helpers.getContract(chain, address, helpers.weaponsAbiPath, wsp);
 
@@ -165,9 +165,9 @@ const helpers = {
       helpers.providerEmitter[chain].emit('reconnected:weapons');
     });
 
-    console.log('[Marketplace Hepler]',`Created weapons provider for ${chain}`);
+    console.log('[Marketplace Hepler]', `Created weapons provider for ${chain}`);
 
-    return helpers.weapon[chain];
+    return helpers.weapons[chain];
   },
 
   getCharacters: (chain, address, wsp) => {
@@ -175,7 +175,7 @@ const helpers = {
       return helpers.characters[chain];
     }
 
-    console.log('[Marketplace Hepler]',`Creating character provider for ${chain}`);
+    console.log('[Marketplace Hepler]', `Creating character provider for ${chain}`);
 
     helpers.characters[chain] = helpers.getContract(chain, address, helpers.charactersAbiPath, wsp);
 
@@ -184,7 +184,7 @@ const helpers = {
       helpers.providerEmitter[chain].emit('reconnected:characters');
     });
 
-    console.log('[Marketplace Hepler]',`Created character provider for ${chain}`);
+    console.log('[Marketplace Hepler]', `Created character provider for ${chain}`);
 
     return helpers.characters[chain];
   },
@@ -194,7 +194,7 @@ const helpers = {
       return helpers.shields[chain];
     }
 
-    console.log('[Marketplace Hepler]',`Creating shield provider for ${chain}`);
+    console.log('[Marketplace Hepler]', `Creating shield provider for ${chain}`);
 
     helpers.shields[chain] = helpers.getContract(chain, address, helpers.shieldsAbiPath, wsp);
 
@@ -203,7 +203,7 @@ const helpers = {
       helpers.providerEmitter[chain].emit('reconnected:shields');
     });
 
-    console.log('[Marketplace Hepler]',`Created shield provider for ${chain}`);
+    console.log('[Marketplace Hepler]', `Created shield provider for ${chain}`);
 
     return helpers.shields[chain];
   },
@@ -372,7 +372,7 @@ const helpers = {
     return {};
   },
 
-  isUserBanned: async (seller) => helpers.getNftMarketPlace().methods.isUserBanned(seller).call(),
+  isUserBanned: async (seller, chain, address, rpc) => helpers.getNftMarketPlace(chain, address, rpc).methods.isUserBanned(seller).call(),
 };
 
 module.exports = helpers;

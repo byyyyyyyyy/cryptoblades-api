@@ -15,7 +15,7 @@ const chainIteration = async (chain) => {
 
   const createOrUpdate = async (nftAddress, nftId, price, seller) => {
     if (banned.includes(seller)) return;
-    if (await marketplaceHelper.isUserBanned(seller)) return;
+    if (await marketplaceHelper.isUserBanned(seller, chain, chainHelper.getMarketAddress(chain), chainHelper.getRPC(chain))) return;
 
     const collection = chainHelper.getCollection(nftAddress);
     const type = chainHelper.getNftTypeOfAddress(nftAddress);
@@ -23,7 +23,6 @@ const chainIteration = async (chain) => {
     const data = await marketplaceHelper.getNFTData(type, nftAddress, chain, wsp, nftId, price, seller);
     const idKey = chainHelper.getIdKey(nftAddress);
     const net = chainHelper.getNetworkValueOfChain(chain);
-
     if (!collection || !idKey || !net) return;
 
     await DB[collection].replaceOne({ [idKey]: nftId, network: net }, data, { upsert: true });
@@ -54,9 +53,9 @@ const chainIteration = async (chain) => {
     }
   };
 
-  const onNewListing = async (seller, nftAddress, nftId, price) => {
+  const onNewListing = async (seller, nftAddress, nftId, price, targetBuyer) => {
     createOrUpdate(nftAddress, nftId.toString(), price, seller).then(() => {
-      console.log(`[${chain}-MARKET]`, `Add ${chainHelper.getNftTypeOfAddress(nftAddress)} ${nftId} from ${seller} for ${marketplaceHelper.realPrice(price)}`);
+      console.log(`[${chain}-MARKET]`, `Add ${chainHelper.getNftTypeOfAddress(nftAddress)} ${nftId} from ${seller} for ${marketplaceHelper.realPrice(price)} for target ${targetBuyer}`);
     }).catch((err) => console.log(`[${chain}-MARKET ADD ERROR] ${err.message}-${nftAddress}`));
   };
 

@@ -151,7 +151,7 @@ const chainIteration = async (chain) => {
     results.forEach((item) => {
       reviewedIds[address] += 1;
       queue.add(async () => {
-        const price = +(await marketplaceHelper.getNftMarketPlace().methods.getFinalPrice(address, item[idKey]).call());
+        const price = +(await marketplaceHelper.getNftMarketPlace(chain, chainHelper.getMarketAddress(chain), chainHelper.getRPC(chain)).methods.getFinalPrice(address, item[idKey]).call());
 
         if (price <= 0) {
           soldIds[address].push(item[idKey]);
