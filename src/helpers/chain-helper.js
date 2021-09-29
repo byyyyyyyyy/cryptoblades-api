@@ -116,6 +116,17 @@ const helpers = {
   load: (tag, chainData) => {
     console.log('[Chain Helper]', `Loaded chain ${tag}`);
     helpers.data[tag] = chainData;
+    
+    if(process.env.RPC_OVERRIDE !== undefined && process.env.RPC_OVERRIDE !== ''){
+      const overrride = JSON.parse(process.env.RPC_OVERRIDE);
+      if(overrride[tag] !== undefined && overrride[tag].rpcUrls !== undefined){
+        helpers.data[tag].rpcUrls = overrride[tag].rpcUrls;
+      }
+      if(overrride[tag] !== undefined && overrride[tag].websocketProvider !== undefined){
+        helpers.data[tag].websocketProvider = overrride[tag].websocketProvider;
+      }
+    }
+
     helpers.addressToChain[chainData.VUE_APP_MARKET_CONTRACT_ADDRESS] = tag;
     helpers.addressToChain[chainData.VUE_APP_CHARACTER_CONTRACT_ADDRESS] = tag;
     helpers.addressToChain[chainData.VUE_APP_WEAPON_CONTRACT_ADDRESS] = tag;
