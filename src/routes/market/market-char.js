@@ -125,7 +125,7 @@ exports.route = (app) => {
     }
 
     try {
-      await DB.$marketCharacters.replaceOne({ charId }, {
+      await DB.$marketCharacters.replaceOne({ charId, network }, {
         price, charId, charLevel, charElement, timestamp, sellerAddress, buyerAddress, network,
       }, { upsert: true });
     } catch (error) {
