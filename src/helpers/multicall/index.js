@@ -1,13 +1,8 @@
 const { Interface } = require('@ethersproject/abi');
 const MultiCallAbi = require('./abis/multicall.json');
 
-const addresses = {
-  56: '0x1ee38d535d541c55c9dae27b12edf090c608e6fb',
-};
-
-async function multicall(web3, abi, calls) {
-  const chainId = await web3.eth.getChainId();
-  const multi = new web3.eth.Contract(MultiCallAbi, addresses[chainId]);
+async function multicall(web3, address, abi, calls) {
+  const multi = new web3.eth.Contract(MultiCallAbi, address);
   const itf = new Interface(abi);
 
   const calldata = calls.map((call) => [

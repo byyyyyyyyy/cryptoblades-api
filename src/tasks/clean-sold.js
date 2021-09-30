@@ -5,6 +5,7 @@ const marketplaceHelper = require('../helpers/marketplace-helper');
 const multicall = require('../helpers/multicall');
 
 const { DB } = require('../db');
+const chainHelper = require('../helpers/chain-helper');
 
 const CONCURRENCY = parseInt(process.env.TASK_CONCURRENCY, 10) || 50;
 const ITEMS_PER_PAGE = parseInt(process.env.MONGODB_ITEMS_PAGE, 10) || 10000;
@@ -13,15 +14,17 @@ const MAX_PER_FINAL_PRICE_PULL = parseInt(process.env.MAX_PER_FINAL_PRICE_PULL, 
 
 exports.duration = process.env.NODE_ENV === 'production' ? 86400 : 600;
 
-exports.task = async () => {
-  if (!await marketplaceHelper.init(':Clean-Up')) {
-    return;
-  }
+const chainIteration = async (chain) => {
+  const chainName = chainHelper.getChainName(chain);
+
+  console.log(
+    `[${chain}-${chainName}:Clean-Up]`,
+  );
 
   const tokenAddresses = [
-    marketplaceHelper.getCharactersAddress(),
-    marketplaceHelper.getWeaponsAddress(),
-    marketplaceHelper.getShieldsAddress(),
+    chainHelper.getCharacterAddress(chain),
+    chainHelper.getWeaponAddress(chain),
+    chainHelper.getShieldAddress(chain),
   ];
 
   const reviewedIds = {};
@@ -35,7 +38,7 @@ exports.task = async () => {
   const printTableStats = () => {
     const table = {};
     tokenAddresses.forEach((addr) => {
-      table[marketplaceHelper.getTypeName(addr)] = {
+      table[chainHelper.getNftTypeOfAddress(addr)] = {
         Reviewed: reviewedIds[addr],
         ToProcess: soldIds[addr].length,
         Processed: processedIds[addr].length,
@@ -46,14 +49,15 @@ exports.task = async () => {
   };
 
   const addTransactionBatch = async (nftAddress, itemIds) => {
-    const collection = marketplaceHelper.getCollection(nftAddress);
-    const idKey = marketplaceHelper.getIdKey(nftAddress);
+    const collection = chainHelper.getCollection(nftAddress);
+    const idKey = chainHelper.getIdKey(nftAddress);
+    const net = chainHelper.getNetworkValueOfChain(chain);
 
-    if (!collection || !idKey) return;
+    if (!collection || !idKey || !net) return;
 
-    const currentMarketEntrys = await DB[collection].find({ [idKey]: { $in: itemIds } }).toArray();
+    const currentMarketEntrys = await DB[collection].find({ [idKey]: { $in: itemIds }, network: net }).toArray();
     if (currentMarketEntrys) {
-      const type = marketplaceHelper.getTypeName(nftAddress);
+      const type = chainHelper.getNftTypeOfAddress(nftAddress);
 
       await pRetry(() => DB.$marketSales.insertMany(currentMarketEntrys.map((entry) => {
         const { _id, ...data } = entry;
@@ -66,12 +70,13 @@ exports.task = async () => {
   };
 
   const removeBatch = async (nftAddress, itemIds) => {
-    const collection = marketplaceHelper.getCollection(nftAddress);
-    const idKey = marketplaceHelper.getIdKey(nftAddress);
+    const collection = chainHelper.getCollection(nftAddress);
+    const idKey = chainHelper.getIdKey(nftAddress);
+    const net = chainHelper.getNetworkValueOfChain(chain);
 
-    if (!collection || !idKey) return;
+    if (!collection || !idKey || !net) return;
 
-    const removeResult = await pRetry(() => DB[collection].deleteMany({ [idKey]: { $in: itemIds } }), { retries: 5 });
+    const removeResult = await pRetry(() => DB[collection].deleteMany({ [idKey]: { $in: itemIds }, network: net }), { retries: 5 });
 
     processedIds[nftAddress].push(...itemIds);
     removedIds[nftAddress] += removeResult.deletedCount;
@@ -80,14 +85,15 @@ exports.task = async () => {
   const getBatch = async (nftAddress, page) => {
     if (page < 0) return null;
 
-    const collection = marketplaceHelper.getCollection(nftAddress);
-    const idKey = marketplaceHelper.getIdKey(nftAddress);
+    const collection = chainHelper.getCollection(nftAddress);
+    const idKey = chainHelper.getIdKey(nftAddress);
+    const net = chainHelper.getNetworkValueOfChain(chain);
 
-    if (!collection || !idKey) return null;
+    if (!collection || !idKey || !net) return null;
 
     const skip = ITEMS_PER_PAGE * (page);
 
-    return pRetry(() => DB[collection].find({}, { [idKey]: 1, _id: 0 })
+    return pRetry(() => DB[collection].find({ network: net }, { [idKey]: 1, _id: 0 })
       .sort({ _id: 1 })
       .skip(skip)
       .limit(ITEMS_PER_PAGE)
@@ -109,9 +115,9 @@ exports.task = async () => {
 
   const checkFinalPrice = (address, items) => {
     queue.add(async () => {
-      const multicallData = marketplaceHelper.getFinalPriceCall(items);
+      const multicallData = marketplaceHelper.getFinalPriceCall(chainHelper.getMarketAddress(chain), items);
 
-      const prices = await pRetry(() => multicall(marketplaceHelper.getWeb3(), multicallData.abi, multicallData.calls), { retries: 5 });
+      const prices = await pRetry(() => multicall(chainHelper.getWeb3(chain), chainHelper.getMulticallAddress(chain), multicallData.abi, multicallData.calls), { retries: 5 });
 
       prices.forEach((price, i) => {
         reviewedIds[address] += 1;
@@ -130,8 +136,8 @@ exports.task = async () => {
     if (!results) return;
 
     console.log(
-      '[MARKET:Clean-Up]',
-      `Page ${page} pulled ${results.length} ${marketplaceHelper.getTypeName(address)}`,
+      `[${chainName}-MARKET:Clean-Up]`,
+      `Page ${page} pulled ${results.length} ${chainHelper.getNftTypeOfAddress(address)}`,
     );
 
     const resultsFound = results.length;
@@ -145,7 +151,7 @@ exports.task = async () => {
     results.forEach((item) => {
       reviewedIds[address] += 1;
       queue.add(async () => {
-        const price = +(await marketplaceHelper.getNftMarketPlace().methods.getFinalPrice(address, item[idKey]).call());
+        const price = +(await marketplaceHelper.getNftMarketPlace(chain, chainHelper.getMarketAddress(chain), chainHelper.getRPC(chain)).methods.getFinalPrice(address, item[idKey]).call());
 
         if (price <= 0) {
           soldIds[address].push(item[idKey]);
@@ -173,7 +179,7 @@ exports.task = async () => {
     removedIds[address] = 0;
     toCheck[address] = [];
 
-    const idKey = marketplaceHelper.getIdKey(address);
+    const idKey = chainHelper.getIdKey(address);
 
     for (let i = 0; i < 5; i += 1) {
       queue.add(() => runQueue(address, idKey, i));
@@ -186,6 +192,25 @@ exports.task = async () => {
 
   await queue.onIdle();
 
-  console.log('[MARKET:Clean-Up]');
+  console.log(`[${chainName}-MARKET:Clean-Up]`);
   printTableStats();
+};
+
+exports.task = async () => {
+  if (!await chainHelper.init()) {
+    return;
+  }
+
+  if (!await marketplaceHelper.init(':Clean-Market')) {
+    return;
+  }
+
+  const chains = chainHelper.getSupportedChains();
+  const iterations = [];
+
+  for (let i = 0; i < chains.length; i += 1) {
+    iterations.push(chainIteration(chains[i]));
+  }
+
+  await Promise.all(iterations).catch(console.log);
 };
