@@ -23,7 +23,7 @@ const chainIteration = async (chain) => {
     const data = await marketplaceHelper.getNFTData(type, nftAddress, chain, wsp, nftId, price, seller);
     const idKey = chainHelper.getIdKey(nftAddress);
     const net = chainHelper.getNetworkValueOfChain(chain);
-    
+
     if (!collection || !idKey || !net) return;
 
     data.network = net;
