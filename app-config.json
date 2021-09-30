@@ -1,6 +1,6 @@
 {
 	"environment": "production",
-    "supportedChains": ["BSC"],
+    "supportedChains": ["HECO", "BSC"],
 	"environments": {
 		"production": 
 		{
