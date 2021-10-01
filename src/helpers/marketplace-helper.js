@@ -190,7 +190,7 @@ const helpers = {
   },
 
   getShields: (chain, address, wsp) => {
-    if (helpers.shields !== undefined) {
+    if (helpers.shields[chain] !== undefined) {
       return helpers.shields[chain];
     }
 
