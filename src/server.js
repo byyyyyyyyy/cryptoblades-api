@@ -126,6 +126,7 @@ const startApp = () => {
 // wait for DB to be ready then go
 DB.isReady.then(async () => {
   startApp();
+  startTasks();
   startListeners();
   startLogging();
 });
