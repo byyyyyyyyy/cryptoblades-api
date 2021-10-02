@@ -122,7 +122,7 @@ const chainIteration = async (chain) => {
         console.log(`${chain} disconnected`);
         marketplaceHelper.resetMarketPlace(chain);
         clearInterval(interval);
-        await new Promise((resolve) => setTimeout(resolve, 10000));
+        await new Promise((resolve) => setTimeout(resolve, 120000));
         if (process.env.WEBSOCKET_RECONNECT === 'y') {
           console.log(`${chain} reconnecting`);
           setup();
