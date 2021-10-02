@@ -115,6 +115,24 @@ const chainIteration = async (chain) => {
       }).on('error', (err) => {
         console.error(`[${chain}-MARKET]`, err);
       });
+    let interval = 0;
+
+    const checkActive = async () => {
+      if (!nftMarketPlace.currentProvider.connected) {
+        console.log(`${chain} disconnected`);
+        marketplaceHelper.resetMarketPlace(chain);
+        clearInterval(interval);
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        if (process.env.WEBSOCKET_RECONNECT === 'y') {
+          console.log(`${chain} reconnecting`);
+          setup();
+        } else {
+          console.log(`${chain} will not reconnect`);
+        }
+      }
+    };
+
+    interval = setInterval(checkActive, 10000);
   };
 
   setup();
@@ -144,3 +162,9 @@ const listen = async () => {
 module.exports = {
   listen,
 };
+
+const callbackfunction = async () => {
+  console.log('Should disconnect existing connectinos');
+};
+
+process.on('exit', callbackfunction);

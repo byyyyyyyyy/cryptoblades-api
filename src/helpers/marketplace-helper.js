@@ -134,7 +134,9 @@ const helpers = {
     fs.readJSONSync(abiPath).abi,
     helpers.getProvider(chain, wsp),
   ),
-
+  resetMarketPlace: (chain) => {
+    helpers.nftMarketPlace[chain] = undefined;
+  },
   getNftMarketPlace: (chain, address, rpc) => {
     if (helpers.nftMarketPlace[chain] !== undefined) {
       return helpers.nftMarketPlace[chain];
