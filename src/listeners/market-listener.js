@@ -6,6 +6,8 @@ const { DB } = require('../db');
 
 const chainHelper = require('../helpers/chain-helper');
 
+const RECONNECT_INTERVAL = parseInt(process.env.WEBSOCKET_RECONNECT_INTERVAL, 10) || 60000;
+
 const chainIteration = async (chain) => {
   const chainName = chainHelper.getChainName(chain);
 
@@ -119,10 +121,10 @@ const chainIteration = async (chain) => {
 
     const checkActive = async () => {
       if (!nftMarketPlace.currentProvider.connected) {
-        console.log(`${chain} disconnected`);
+        console.log(`${chain} disconnected. Reconnecting after ${RECONNECT_INTERVAL}ms`);
         marketplaceHelper.resetMarketPlace(chain);
         clearInterval(interval);
-        await new Promise((resolve) => setTimeout(resolve, 120000));
+        await new Promise((resolve) => setTimeout(resolve, RECONNECT_INTERVAL));
         if (process.env.WEBSOCKET_RECONNECT === 'y') {
           console.log(`${chain} reconnecting`);
           setup();
