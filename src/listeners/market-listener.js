@@ -21,8 +21,8 @@ const chainIteration = async (chain) => {
 
     const collection = chainHelper.getCollection(nftAddress);
     const type = chainHelper.getNftTypeOfAddress(nftAddress);
-    const wsp = chainHelper.getWSP(chain);
-    const data = await marketplaceHelper.getNFTData(type, nftAddress, chain, wsp, nftId, price, seller);
+    const rpc = chainHelper.getRPC(chain);
+    const data = await marketplaceHelper.getNFTData(type, nftAddress, chain, rpc, nftId, price, seller);
     const idKey = chainHelper.getIdKey(nftAddress);
     const net = chainHelper.getNetworkValueOfChain(chain);
 
@@ -138,8 +138,6 @@ const chainIteration = async (chain) => {
   };
 
   setup();
-  marketplaceHelper.getProvider(chain, chainHelper.getWSP(chain)); // Make sure providerEmitter exists for the chain
-  marketplaceHelper.providerEmitter[chain].on('reconnected:nftMarketPlace', setup);
 };
 
 const listen = async () => {
