@@ -113,9 +113,9 @@ const helpers = {
 
       helpers.keepAlive(helpers.provider[chain], (err) => {
         console.error('====================================================');
-        console.error('=================Provider restarted=================');
+        console.error(`=================Provider restarted ${chain}=================`);
         console.error(err);
-        console.error('=================Provider restarted=================');
+        console.error(`=================Provider restarted ${chain}=================`);
         console.error('====================================================');
 
         buildProvider();

@@ -205,6 +205,11 @@ exports.task = async () => {
     return;
   }
 
+  if (process.env.ENABLE_UPDATE_CLEAN_MARKET !== 'y') {
+    console.log('Clean Market not enabled');
+    return;
+  }
+
   const chains = chainHelper.getSupportedChains();
   const iterations = [];
 
