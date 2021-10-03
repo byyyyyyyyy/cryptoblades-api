@@ -105,7 +105,9 @@ const helpers = {
     const env = result.environment;
 
     helpers.supportedChains = result.supportedChains;
-
+    if (process.env.SUPPORTED_CHAINS_OVERRIDE !== undefined && process.env.SUPPORTED_CHAINS_OVERRIDE !== '') {
+      helpers.supportedChains = JSON.parse(process.env.SUPPORTED_CHAINS_OVERRIDE);
+    }
     console.log('[Chain Helper]', `Loading chains for ${env}`);
     for (let i = 0; i < helpers.supportedChains.length; i += 1) {
       helpers.load(helpers.supportedChains[i], result.environments[env].chains[helpers.supportedChains[i]]);
