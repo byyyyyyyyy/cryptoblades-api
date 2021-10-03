@@ -157,8 +157,8 @@ const helpers = {
     if (helpers.nftMarketPlace[chain] !== undefined) {
       return helpers.nftMarketPlace[chain];
     }
-
     const web3 = new Web3(rpc);
+
     const Market = new web3.eth.Contract(
       fs.readJSONSync(helpers.marketplaceAbiPath).abi,
       address,
@@ -176,13 +176,11 @@ const helpers = {
 
     console.log('[Marketplace Hepler]', `Creating weapons provider for ${chain}`);
 
-    helpers.weapons[chain] = helpers.getContract(chain, address, helpers.weaponsAbiPath, wsp);
-
-    helpers.providerEmitter[chain].on('reconnected', () => {
-      helpers.weapons[chain] = helpers.weapons[chain].connect(helpers.getProvider(chain, wsp));
-      helpers.providerEmitter[chain].emit('reconnected:weapons');
-    });
-
+    const web3 = new Web3(wsp);
+    helpers.weapons[chain] = new web3.eth.Contract(
+      fs.readJSONSync(helpers.weaponsAbiPath).abi,
+      address,
+    );
     console.log('[Marketplace Hepler]', `Created weapons provider for ${chain}`);
 
     return helpers.weapons[chain];
@@ -193,14 +191,14 @@ const helpers = {
       return helpers.characters[chain];
     }
 
+    const web3 = new Web3(wsp);
+
     console.log('[Marketplace Hepler]', `Creating character provider for ${chain}`);
 
-    helpers.characters[chain] = helpers.getContract(chain, address, helpers.charactersAbiPath, wsp);
-
-    helpers.providerEmitter[chain].on('reconnected', () => {
-      helpers.characters[chain] = helpers.characters[chain].connect(helpers.getProvider(chain, wsp));
-      helpers.providerEmitter[chain].emit('reconnected:characters');
-    });
+    helpers.characters[chain] = new web3.eth.Contract(
+      fs.readJSONSync(helpers.charactersAbiPath).abi,
+      address,
+    );
 
     console.log('[Marketplace Hepler]', `Created character provider for ${chain}`);
 
@@ -214,12 +212,11 @@ const helpers = {
 
     console.log('[Marketplace Hepler]', `Creating shield provider for ${chain}`);
 
-    helpers.shields[chain] = helpers.getContract(chain, address, helpers.shieldsAbiPath, wsp);
-
-    helpers.providerEmitter[chain].on('reconnected', () => {
-      helpers.shields[chain] = helpers.shields[chain].connect(helpers.getProvider(chain, wsp));
-      helpers.providerEmitter[chain].emit('reconnected:shields');
-    });
+    const web3 = new Web3(wsp);
+    helpers.shields[chain] = new web3.eth.Contract(
+      fs.readJSONSync(helpers.shieldsAbiPath).abi,
+      address,
+    );
 
     console.log('[Marketplace Hepler]', `Created shield provider for ${chain}`);
 
@@ -285,19 +282,19 @@ const helpers = {
     })),
   }),
 
-  getNFTData: async (type, nftAddress, chain, wsp, nftId, rawPrice, sellerAddress) => {
+  getNFTData: async (type, nftAddress, chain, rpc, nftId, rawPrice, sellerAddress) => {
     let data;
 
     if (type === 'character') {
-      data = await helpers.getCharacters(chain, nftAddress, wsp).get(nftId);
+      data = await helpers.getCharacters(chain, nftAddress, rpc).methods.get(nftId).call({ from: nftAddress });
     }
 
     if (type === 'weapon') {
-      data = await helpers.getWeapons(chain, nftAddress, wsp).get(nftId);
+      data = await helpers.getWeapons(chain, nftAddress, rpc).methods.get(nftId).call({ from: nftAddress });
     }
 
     if (type === 'shield') {
-      data = await helpers.getShields(chain, nftAddress, wsp).get(nftId);
+      data = await helpers.getShields(chain, nftAddress, rpc).methods.get(nftId).call({ from: nftAddress });
     }
 
     return helpers.processNFTData(type, nftId, chain, rawPrice, sellerAddress, data);
