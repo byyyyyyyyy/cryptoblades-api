@@ -73,7 +73,7 @@ const chainIteration = async (chain) => {
 
     const runQueue = (start) => async () => {
       const results = await pRetry(() => marketplaceHelper
-        .getNftMarketPlace(chain, chainHelper.getMarketAddress(chain), chainHelper.getRPC(chain))
+        .getNftMarketPlaceForSync(chain, chainHelper.getMarketAddress(chain), chainHelper.getRPC(chain))
         .methods
         .getListingSlice(address, start, ITEMS_PER_PAGE).call(),
       { retries: 5 });

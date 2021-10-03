@@ -17,6 +17,7 @@ const helpers = {
   shieldsAbiPath: './src/data/abi/Shields.json',
 
   nftMarketPlace: [],
+  nftMarketPlaceForSync: [],
   weapons: [],
   characters: [],
   shields: [],
@@ -136,6 +137,21 @@ const helpers = {
   ),
   resetMarketPlace: (chain) => {
     helpers.nftMarketPlace[chain] = undefined;
+  },
+  getNftMarketPlaceForSync: (chain, address, rpc) => {
+    if (helpers.nftMarketPlaceForSync[chain] !== undefined) {
+      return helpers.nftMarketPlaceForSync[chain];
+    }
+
+    const web3 = new Web3(rpc);
+    const Market = new web3.eth.Contract(
+      fs.readJSONSync(helpers.marketplaceAbiPath).abi,
+      address,
+    );
+
+    helpers.nftMarketPlaceForSync[chain] = Market;
+
+    return helpers.nftMarketPlaceForSync[chain];
   },
   getNftMarketPlace: (chain, address, rpc) => {
     if (helpers.nftMarketPlace[chain] !== undefined) {

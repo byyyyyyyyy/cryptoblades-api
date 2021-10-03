@@ -85,7 +85,7 @@ const chainIteration = async (chain) => {
   };
 
   const setup = () => {
-    const nftMarketPlace = marketplaceHelper.getNftMarketPlace(chain, chainHelper.getMarketAddress(chain), chainHelper.getRPC(chain));
+    const nftMarketPlace = marketplaceHelper.getNftMarketPlace(chain, chainHelper.getMarketAddress(chain), chainHelper.getWSP(chain));
 
     const events = {
       NewListing: {
