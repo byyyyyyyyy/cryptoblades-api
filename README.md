@@ -6,6 +6,7 @@ Create a `.env` file with the following:
 
 - `MONGODB_URI` - a ref to the mongodb instance
 - `WEBSOCKET_PROVIDER_URL` - the URL of the RPC websocket node
+- `PRINTFUL_API` - the API token for Printful
 
 ### Optional Variables
 
@@ -93,3 +94,9 @@ Every endpoint additionally supports `gas` for logging and analytics purposes on
 - POST `/calculated/skill/liquidity` - pass `total` (number), `timestamp` (optional, number)
 - GET `/static/calculated/skill/total` - current liquidity value
 - POST `/calculated/skill/total` - pass `total` (number), `timestamp` (optional, number)
+
+#### Merchant
+- GET `/merchant/products` - get the printful products
+- GET `/merchant/products/:id` - get the specific printful product details
+- GET `/merchant/countries` - get the list of supported countries
+- POST `/merchant/create_order` - creates a new printful order. See printful API documentation for input data
